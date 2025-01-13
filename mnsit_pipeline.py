@@ -1,7 +1,7 @@
 import torch
 from torch.utils.data import DataLoader, Dataset, SubsetRandomSampler
 import numpy as np
-from torchvision import datasets, transforms,
+from torchvision import datasets, transforms
 import os
 
 from rational_kat_cu.kat.katransformer import KATVisionTransformer

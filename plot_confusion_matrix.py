@@ -1,6 +1,7 @@
 import matplotlib.pyplot as plt
 import numpy as np
 import itertools
+import os
 
 def plot_confusion_matrix(cm, classes,
                           normalize=False,
@@ -43,4 +44,6 @@ def plot_confusion_matrix(cm, classes,
     plt.ylabel('True label', fontsize=12)
     plt.xlabel('Predicted label', fontsize=12)
     # Save the plot
+    # Create the images directory if it doesn't exist
+    os.makedirs('images', exist_ok=True)
     plt.savefig(f'images/{title}.png')

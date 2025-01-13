@@ -3,10 +3,8 @@ import numpy as np
 import matplotlib.pyplot as plt
 from sklearn.metrics import confusion_matrix, accuracy_score, classification_report
 from plot_confusion_matrix import plot_confusion_matrix
+from modules import Classifier
 import os
-import torch.nn as nn
-
-CRITERION = nn.CrossEntropyLoss()
 
 class EarlyStopper:
     """
@@ -40,11 +38,11 @@ class EarlyStopper:
         Args:
             model_state: Current state of the model
             validation_loss: Current validation loss
-            epoch: Current epoch number
+            epoch: Current epoch numbers
             optimizer_state: Optional optimizer state
         """
         checkpoint = {
-            'model_state_dict': model_state,
+            'model': model_state,  # Changed from 'model_state_dict' to 'model'
             'epoch': epoch,
             'validation_loss': validation_loss
         }
@@ -52,6 +50,7 @@ class EarlyStopper:
             checkpoint['optimizer_state_dict'] = optimizer_state
             
         torch.save(checkpoint, self.save_path)
+        print(f'Checkpoint saved at epoch {epoch} to {self.save_path}')
     
     def early_stop(self, validation_loss, epoch=None, optimizer_state=None):
         """
@@ -88,9 +87,8 @@ class EarlyStopper:
 def train_one_epoch(model, train_loader, optimizer, device):
     model.train()
     total_loss = 0
-    for x, y in train_loader:        
-        logits = model(x.float().to(device))
-        loss = CRITERION(logits, y.to(device))
+    for x, y, lengths in train_loader:        
+        loss, logits = model(x.float().to(device), y.to(device), lengths.to(device))
         # prepare
         optimizer.zero_grad()
         # backward
@@ -107,9 +105,8 @@ def validate_one_epoch(model, val_loader, device):
     model.eval()
     total_loss = 0
     with torch.no_grad():
-        for x, y in val_loader:
-            logits = model(x.float().to(device), )
-            loss = CRITERION(logits, y.to(device))
+        for x, y, lengths in val_loader:
+            loss, logits = model(x.float().to(device), y.to(device), lengths.to(device))
             total_loss += loss.item()
     
     avg_loss = total_loss / len(val_loader)    
@@ -140,6 +137,7 @@ def overfit_with_a_couple_of_batches(model, train_loader, optimizer, device, epo
             batches.append((
                 batch[0].float().to(device),  # x
                 batch[1].to(device),          # y
+                batch[2].to(device)           # lengths
             ))
         except StopIteration:
             print("Warning: Could not get 3 full batches, using available batches only")
@@ -155,10 +153,10 @@ def overfit_with_a_couple_of_batches(model, train_loader, optimizer, device, epo
         total_loss = 0
         
         # Train on each of the saved batches
-        for batch_idx, (x, y) in enumerate(batches):
+        for batch_idx, (x, y, lengths) in enumerate(batches):
             # Forward pass
-            logits = model(x) 
-            loss = CRITERION(logits, y.to(device))
+            loss, logits = model(x, y, lengths) 
+            
             # Backward pass
             optimizer.zero_grad()
             loss.backward()
@@ -239,7 +237,7 @@ def train(model, train_loader, val_loader, optimizer, epochs, save_path, device,
     
     # Load the best model
     checkpoint = torch.load(save_path, weights_only=True)
-    model.load_state_dict(checkpoint['model_state_dict'])
+    model.load_state_dict(checkpoint['model'])  # Changed 'model_state_dict' to 'model'
     print(f'Loaded best model from epoch {checkpoint["epoch"] + 1} with validation loss: {checkpoint["validation_loss"]:.4f}')
     
     if not overfit_batch:
